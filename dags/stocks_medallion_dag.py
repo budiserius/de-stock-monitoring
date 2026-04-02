@@ -1,3 +1,4 @@
+# stocks_medallion_dag.py
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -13,9 +14,12 @@ def run_silver_step(**context):
     path = context['ti'].xcom_pull(task_ids='bronze_ingestion_task')
     
     if not path:
-        print("No new data to process.")
+        print("No path received from Bronze task.")
         return
         
+    if isinstance(path, (list, tuple)):
+        path = path[0]
+
     pg_hook = PostgresHook(postgres_conn_id='postgre_local_stock_monitoring')
     engine = pg_hook.get_sqlalchemy_engine()
     
@@ -27,17 +31,19 @@ def run_silver_step(**context):
     )
 
 with DAG(
-    dag_id='stock_medallion_realtime',
+    dag_id='stock_medallion_daily',
     start_date=datetime(2024, 1, 1),
-    # RUN SETIAP MENIT (Cron format: menit, jam, hari, bulan, hari_minggu)
-    schedule_interval='* * * * *', 
+    schedule_interval='@daily', 
     catchup=False,
-    max_active_runs=1, # Mencegah task tumpang tindih
+    max_active_runs=1,
     default_args={
-        'retries': 0, # Jangan retry berlebihan untuk menit-an
-        'execution_timeout': timedelta(seconds=55) # Harus selesai < 1 menit
+        'owner': 'airflow',
+        'retries': 1,
+        'retry_delay': timedelta(minutes=5),
+        'execution_timeout': timedelta(minutes=10) # Daily task punya ruang lebih lama
     },
-    tags=['monitoring', 'realtime']
+    template_searchpath='/opt/airflow/dags/scripts',
+    tags=['monitoring', 'daily', 'stocks']
 ) as dag:
 
     bronze_task = PythonOperator(

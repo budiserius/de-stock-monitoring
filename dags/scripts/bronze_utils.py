@@ -1,3 +1,4 @@
+# bronze_utils.py
 import yfinance as yf
 import pandas as pd
 import os
@@ -22,13 +23,17 @@ def fetch_stock_data(tickers, base_folder):
 
         os.makedirs(base_folder, exist_ok=True)
         today = datetime.now().strftime("%Y-%m-%d")
-        file_path = os.path.join(base_folder, f"stocks_{today}.parquet")
+        base_path = os.path.join(base_folder, f"stocks_{today}")
+        parquet_path = f"{base_path}.parquet"
+        csv_path = f"{base_path}.csv"
 
-        df.to_parquet(file_path, index=False, engine='pyarrow')
+        df.to_parquet(parquet_path, index=False, engine='pyarrow')
+        # df.to_csv(csv_path, index=False)
 
-        print(f"Success: {file_path} | Rows: {len(df)}")
-        return file_path
+        print(f"Success: Files saved to {base_folder} | Rows: {len(df)}")
+        return parquet_path
 
     except Exception as e:
         print(f"Error fetching data: {str(e)}")
         raise e
+    
